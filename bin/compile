@@ -8,59 +8,29 @@ BIN_DIR=$(cd $(dirname $0); pwd) # absolute path
 ROOT_DIR=$(dirname $BIN_DIR)
 BUILD_DIR=$1
 CACHE_DIR=$2
-ENV_DIR=$3
 CACHED_DIRS=".heroku"
 WORKING_DIR=$(pwd)
 
 rm -fr $CACHE_DIR
 mkdir -p $CACHE_DIR
 
-# Versions.
-PYTHON_VERSION="python-3.5.2"
-PYTHON_STACK="cedar-14"
-PCRE_VERSION='pcre-8.36'
 source $BIN_DIR/utils
 
-mkdir -p $BUILD_DIR/local/sbin
-
-if [[ ! -d "$CACHE_DIR/$PYTHON_VERSION" ]]; then
-  cd $CACHE_DIR
-  puts-step "Installing Python ($PYTHON_VERSION)"
-  mkdir $PYTHON_VERSION
-  curl https://lang-python.s3.amazonaws.com/$PYTHON_STACK/runtimes/$PYTHON_VERSION.tar.gz -s | tar zx -C $PYTHON_VERSION &> /dev/null
-fi
-
-# without setting a UTF-8 encoding, pip8 exposes a bug: https://github.com/multani/sonata/issues/72
-export LANG=en_GB.utf-8
-
-export PATH=$CACHE_DIR/$PYTHON_VERSION/bin:$PATH
-export C_INCLUDE_PATH=$CACHE_DIR/$PYTHON_VERSION/include
-export CPLUS_INCLUDE_PATH=$CACHE_DIR/$PYTHON_VERSION/include
-export LIBRARY_PATH=$CACHE_DIR/$PYTHON_VERSION/lib
-export LD_LIBRARY_PATH=$CACHE_DIR/$PYTHON_VERSION/lib
-
-export_env_dir $ENV_DIR
-
-puts-step "Ensure pip"
-python -m ensurepip --upgrade | indent
+# puts-step "Upgrade pip"
+# python -m pip --upgrade | indent
 
 cd $BUILD_DIR
 
-# puts-step "Checking for STATIC_URL"
-# DJANGO_SETTINGS_MODULE=config.settings.production python runscript get_static_url
+puts-step "Install Mkdocs"
+if [[ -f requirements.txt ]]; then
+  puts-step "Installing dependencies using pip"
+  python -m pip install --quiet -r requirements.txt
+else
+  puts-step "Installing MkDocs"
+  python -m pip install --quiet mkdocs
+fi
 
-# puts-step "Replacing base_url in mkdocs.yml"
-# ./utility/set_mkdocs_base_url.sh
-
-# puts-step "Installing pip3 MkDocs"
-# # pip3 install mkdocs
-# pip3 install mkdocs
-
-puts-step "Installing MkDocs"
-python -m pip install --quiet mkdocs | indent
-
-puts-step "Running MkDocs"
-
+puts-step "Check mkdocs file"
 if [[ -f mkdocs.yml ]]; then
   CONFIG_FILE="mkdocs.yml"
 else
@@ -68,8 +38,5 @@ else
   exit 1
 fi
 
-# mkdocs build -f $CONFIG_FILE | indent
-
+puts-step "Build Docs"
 mkdocs build -c -d $BUILD_DIR/public -f $CONFIG_FILE | indent
-
-echo ls -la $BUILD_DIR/public
